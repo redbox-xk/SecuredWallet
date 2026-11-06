@@ -136,6 +136,12 @@ interface CoinData {
   sparkline_in_7d?: { price: number[] }
 }
 
+interface MexcData {
+  account: { balances?: Array<{ asset: string; free: string; locked: string }> }
+  ticker: { lastPrice?: string; priceChangePercent?: string; highPrice?: string; lowPrice?: string; volume?: string }
+  orders: Array<{ orderId: string; side: string; type: string; price: string; origQty: string; executedQty: string; status: string }>
+}
+
 type AppView = "onboarding" | "dashboard"
 
 // ---------------------------------------------------------------------------
@@ -181,10 +187,14 @@ const COINGECKO_MARKETS =
   "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=120&page=1&sparkline=true&price_change_percentage=24h"
 
 async function fetchMarkets(url: string): Promise<CoinData[]> {
-  const res = await fetch(url, {
-    headers: { Accept: "application/json" },
-  })
+  const res = await fetch(url, { headers: { Accept: "application/json" } })
   if (!res.ok) throw new Error("CoinGecko API error")
+  return res.json()
+}
+
+async function fetchJson<T>(url: string): Promise<T> {
+  const res = await fetch(url, { headers: { Accept: "application/json" } })
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Request failed")
   return res.json()
 }
 
@@ -232,6 +242,13 @@ export default function CKSApp() {
   const [copied, setCopied] = useState(false)
   const [activeTab, setActiveTab] = useState("wallet")
   const [coinSearch, setCoinSearch] = useState("")
+  const [mexcSymbol, setMexcSymbol] = useState("BTCUSDT")
+  const [mexcSide, setMexcSide] = useState<"BUY" | "SELL">("BUY")
+  const [mexcType, setMexcType] = useState<"MARKET" | "LIMIT">("LIMIT")
+  const [mexcQuantity, setMexcQuantity] = useState("")
+  const [mexcPrice, setMexcPrice] = useState("")
+  const [mexcNotice, setMexcNotice] = useState("")
+  const [mexcSubmitting, setMexcSubmitting] = useState(false)
 
   // Privacy
   const [settingsShowPhrase, setSettingsShowPhrase] = useState(false)
@@ -264,6 +281,30 @@ export default function CKSApp() {
     fetchMarkets,
     { refreshInterval: 60000, revalidateOnFocus: false, dedupingInterval: 30000 }
   )
+  const { data: mexcData, error: mexcError, mutate: refreshMexc } = useSWR<MexcData>(
+    view === "dashboard" ? `/api/mexc?symbol=${encodeURIComponent(mexcSymbol)}` : null,
+    fetchJson,
+    { refreshInterval: 30000, revalidateOnFocus: false }
+  )
+
+  const submitMexcOrder = async () => {
+    const orderSummary = `${mexcSide} ${mexcQuantity} ${mexcSymbol}${mexcType === "LIMIT" ? ` at ${mexcPrice}` : " at market price"}`
+    if (!window.confirm(`Confirm MEXC order / MEXC-Auftrag bestätigen:\n\n${orderSummary}`)) return
+    setMexcSubmitting(true)
+    setMexcNotice("")
+    try {
+      const response = await fetch("/api/mexc", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbol: mexcSymbol, side: mexcSide, type: mexcType, quantity: mexcQuantity, price: mexcType === "LIMIT" ? mexcPrice : undefined }) })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || "Order rejected")
+      setMexcNotice(`Order ${result.order?.orderId || "submitted"} accepted / Auftrag angenommen`)
+      setMexcQuantity("")
+      await refreshMexc()
+    } catch (error) {
+      setMexcNotice(error instanceof Error ? error.message : "Order failed")
+    } finally {
+      setMexcSubmitting(false)
+    }
+  }
 
   const filteredCoins = useMemo(() => {
     if (!coins) return []
@@ -697,6 +738,24 @@ export default function CKSApp() {
                   )}
                 </div>
               </div>
+            </div>
+
+            <div className="glass rounded-2xl p-4">
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div><p className="text-sm font-semibold text-foreground">MEXC Trading</p><p className="text-xs text-muted-foreground">Spot dashboard / Spot-Handel</p></div>
+                <Button variant="ghost" size="icon" onClick={() => refreshMexc()} className="min-h-[44px] min-w-[44px]" aria-label="Refresh MEXC data"><RefreshCw className={`h-4 w-4 ${mexcSubmitting ? "animate-spin" : ""}`} /></Button>
+              </div>
+              {mexcError ? <div className="mb-3 rounded-xl bg-destructive/10 p-3 text-xs text-destructive">{mexcError.message}. Check your secure MEXC project variables.</div> : <div className="mb-4 grid grid-cols-2 gap-2"><div className="rounded-xl bg-secondary/50 p-3"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Last price</p><p className="mt-1 font-mono text-sm font-bold text-foreground">{mexcData?.ticker?.lastPrice || "—"}</p></div><div className="rounded-xl bg-secondary/50 p-3"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">24h change</p><p className={`mt-1 font-mono text-sm font-bold ${Number(mexcData?.ticker?.priceChangePercent || 0) >= 0 ? "text-green-600" : "text-red-600"}`}>{mexcData?.ticker?.priceChangePercent ? `${Number(mexcData.ticker.priceChangePercent).toFixed(2)}%` : "—"}</p></div></div>}
+              <div className="grid grid-cols-2 gap-2">
+                <Input aria-label="Trading symbol" value={mexcSymbol} onChange={(e) => setMexcSymbol(e.target.value.toUpperCase())} placeholder="BTCUSDT" className="min-h-[44px] font-mono uppercase" />
+                <Select value={mexcSide} onValueChange={(value) => setMexcSide(value as "BUY" | "SELL")}><SelectTrigger className="min-h-[44px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="BUY">Buy / Kaufen</SelectItem><SelectItem value="SELL">Sell / Verkaufen</SelectItem></SelectContent></Select>
+                <Select value={mexcType} onValueChange={(value) => setMexcType(value as "MARKET" | "LIMIT")}><SelectTrigger className="min-h-[44px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="LIMIT">Limit</SelectItem><SelectItem value="MARKET">Market / Markt</SelectItem></SelectContent></Select>
+                <Input aria-label="Order quantity" value={mexcQuantity} onChange={(e) => setMexcQuantity(e.target.value)} placeholder="Quantity / Menge" inputMode="decimal" className="min-h-[44px]" />
+                {mexcType === "LIMIT" && <Input aria-label="Limit price" value={mexcPrice} onChange={(e) => setMexcPrice(e.target.value)} placeholder="Price / Preis" inputMode="decimal" className="col-span-2 min-h-[44px]" />}
+              </div>
+              <Button onClick={submitMexcOrder} disabled={mexcSubmitting || !mexcQuantity || (mexcType === "LIMIT" && !mexcPrice)} className="mt-3 min-h-[48px] w-full rounded-xl font-semibold">{mexcSubmitting ? <RefreshCw className="h-4 w-4 animate-spin" /> : <TrendingUp className="h-4 w-4" />}{mexcSide === "BUY" ? "Buy / Kaufen" : "Sell / Verkaufen"} {mexcSymbol}</Button>
+              {mexcNotice && <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{mexcNotice}</p>}
+              <p className="mt-3 flex items-start gap-1.5 text-[10px] leading-relaxed text-muted-foreground"><ShieldCheck className="mt-0.5 h-3 w-3 shrink-0 text-primary" />Trading only. Withdrawals are not enabled. / Nur Handel, keine Auszahlungen.</p>
             </div>
 
             {/* Security status */}
