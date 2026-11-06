@@ -38,12 +38,13 @@ export async function GET(request: NextRequest) {
   try {
     const symbol = (request.nextUrl.searchParams.get("symbol") || "BTCUSDT").toUpperCase()
     if (!SYMBOL_PATTERN.test(symbol)) return jsonError(new Error("Invalid trading symbol"), 400)
-    const [account, ticker, orders] = await Promise.all([
+    const [account, ticker, candles, orders] = await Promise.all([
       mexcRequest("/api/v3/account", {}),
       mexcRequest("/api/v3/ticker/24hr", { symbol }),
+      fetch(`${MEXC_BASE_URL}/api/v3/klines?symbol=${symbol}&interval=1h&limit=48`, { cache: "no-store" }).then((response) => response.json()),
       mexcRequest("/api/v3/openOrders", { symbol }),
     ])
-    return NextResponse.json({ account, ticker, orders })
+    return NextResponse.json({ account, ticker, candles, orders })
   } catch (error) {
     return jsonError(error, error instanceof Error && error.message.includes("credentials") ? 503 : 502)
   }

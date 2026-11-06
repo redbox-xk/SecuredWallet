@@ -19,6 +19,8 @@ import {
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts"
 import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
@@ -52,6 +54,7 @@ import {
   TrendingUp,
   TrendingDown,
   Coins,
+  CreditCard,
   ShieldCheck,
   Fingerprint,
 } from "lucide-react"
@@ -139,6 +142,7 @@ interface CoinData {
 interface MexcData {
   account: { balances?: Array<{ asset: string; free: string; locked: string }> }
   ticker: { lastPrice?: string; priceChangePercent?: string; highPrice?: string; lowPrice?: string; volume?: string }
+  candles: Array<[number, string, string, string, string, string]>
   orders: Array<{ orderId: string; side: string; type: string; price: string; origQty: string; executedQty: string; status: string }>
 }
 
@@ -249,6 +253,8 @@ export default function CKSApp() {
   const [mexcPrice, setMexcPrice] = useState("")
   const [mexcNotice, setMexcNotice] = useState("")
   const [mexcSubmitting, setMexcSubmitting] = useState(false)
+  const [cardAmount, setCardAmount] = useState("")
+  const [cryptoCard, setCryptoCard] = useState<{ id: string; last4: string; limit: string } | null>(null)
 
   // Privacy
   const [settingsShowPhrase, setSettingsShowPhrase] = useState(false)
@@ -286,6 +292,14 @@ export default function CKSApp() {
     fetchJson,
     { refreshInterval: 30000, revalidateOnFocus: false }
   )
+
+  const generateCryptoCard = (requestedAmount = cardAmount) => {
+    const amount = Number(requestedAmount)
+    if (!Number.isFinite(amount) || amount <= 0 || amount > Number(balance)) return
+    const cardSeed = `${wallet?.address || "local-wallet"}-${amount}-${Date.now()}`
+    const id = ethers.keccak256(ethers.toUtf8Bytes(cardSeed)).slice(2, 14).toUpperCase()
+    setCryptoCard({ id, last4: id.slice(-4), limit: amount.toFixed(2) })
+  }
 
   const submitMexcOrder = async () => {
     const orderSummary = `${mexcSide} ${mexcQuantity} ${mexcSymbol}${mexcType === "LIMIT" ? ` at ${mexcPrice}` : " at market price"}`
@@ -703,7 +717,7 @@ export default function CKSApp() {
 
         {/* Tabs: Wallet / Markets / Activity */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 bg-secondary/50 min-h-[48px]">
+          <TabsList className="grid w-full grid-cols-4 bg-secondary/50 min-h-[48px]">
             <TabsTrigger value="wallet" className="min-h-[44px] gap-1.5 text-xs font-semibold">
               <SecBadge size={16} />
               Wallet
@@ -711,6 +725,10 @@ export default function CKSApp() {
             <TabsTrigger value="markets" className="min-h-[44px] gap-1.5 text-xs font-semibold">
               <SecBadge size={16} />
               Markets
+            </TabsTrigger>
+            <TabsTrigger value="spot" className="min-h-[44px] gap-1.5 text-xs font-semibold">
+              <TrendingUp className="h-4 w-4" />
+              Spot
             </TabsTrigger>
             <TabsTrigger value="activity" className="min-h-[44px] gap-1.5 text-xs font-semibold">
               <SecBadge size={16} />
@@ -741,21 +759,8 @@ export default function CKSApp() {
             </div>
 
             <div className="glass rounded-2xl p-4">
-              <div className="mb-4 flex items-start justify-between gap-3">
-                <div><p className="text-sm font-semibold text-foreground">MEXC Trading</p><p className="text-xs text-muted-foreground">Spot dashboard / Spot-Handel</p></div>
-                <Button variant="ghost" size="icon" onClick={() => refreshMexc()} className="min-h-[44px] min-w-[44px]" aria-label="Refresh MEXC data"><RefreshCw className={`h-4 w-4 ${mexcSubmitting ? "animate-spin" : ""}`} /></Button>
-              </div>
-              {mexcError ? <div className="mb-3 rounded-xl bg-destructive/10 p-3 text-xs text-destructive">{mexcError.message}. Check your secure MEXC project variables.</div> : <div className="mb-4 grid grid-cols-2 gap-2"><div className="rounded-xl bg-secondary/50 p-3"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Last price</p><p className="mt-1 font-mono text-sm font-bold text-foreground">{mexcData?.ticker?.lastPrice || "—"}</p></div><div className="rounded-xl bg-secondary/50 p-3"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">24h change</p><p className={`mt-1 font-mono text-sm font-bold ${Number(mexcData?.ticker?.priceChangePercent || 0) >= 0 ? "text-green-600" : "text-red-600"}`}>{mexcData?.ticker?.priceChangePercent ? `${Number(mexcData.ticker.priceChangePercent).toFixed(2)}%` : "—"}</p></div></div>}
-              <div className="grid grid-cols-2 gap-2">
-                <Input aria-label="Trading symbol" value={mexcSymbol} onChange={(e) => setMexcSymbol(e.target.value.toUpperCase())} placeholder="BTCUSDT" className="min-h-[44px] font-mono uppercase" />
-                <Select value={mexcSide} onValueChange={(value) => setMexcSide(value as "BUY" | "SELL")}><SelectTrigger className="min-h-[44px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="BUY">Buy / Kaufen</SelectItem><SelectItem value="SELL">Sell / Verkaufen</SelectItem></SelectContent></Select>
-                <Select value={mexcType} onValueChange={(value) => setMexcType(value as "MARKET" | "LIMIT")}><SelectTrigger className="min-h-[44px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="LIMIT">Limit</SelectItem><SelectItem value="MARKET">Market / Markt</SelectItem></SelectContent></Select>
-                <Input aria-label="Order quantity" value={mexcQuantity} onChange={(e) => setMexcQuantity(e.target.value)} placeholder="Quantity / Menge" inputMode="decimal" className="min-h-[44px]" />
-                {mexcType === "LIMIT" && <Input aria-label="Limit price" value={mexcPrice} onChange={(e) => setMexcPrice(e.target.value)} placeholder="Price / Preis" inputMode="decimal" className="col-span-2 min-h-[44px]" />}
-              </div>
-              <Button onClick={submitMexcOrder} disabled={mexcSubmitting || !mexcQuantity || (mexcType === "LIMIT" && !mexcPrice)} className="mt-3 min-h-[48px] w-full rounded-xl font-semibold">{mexcSubmitting ? <RefreshCw className="h-4 w-4 animate-spin" /> : <TrendingUp className="h-4 w-4" />}{mexcSide === "BUY" ? "Buy / Kaufen" : "Sell / Verkaufen"} {mexcSymbol}</Button>
-              {mexcNotice && <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{mexcNotice}</p>}
-              <p className="mt-3 flex items-start gap-1.5 text-[10px] leading-relaxed text-muted-foreground"><ShieldCheck className="mt-0.5 h-3 w-3 shrink-0 text-primary" />Trading only. Withdrawals are not enabled. / Nur Handel, keine Auszahlungen.</p>
+              <div className="flex items-center gap-3"><div className="rounded-xl bg-primary/10 p-2 text-primary"><CreditCard className="h-5 w-5" /></div><div className="flex-1"><p className="text-sm font-semibold text-foreground">Digital Cryptographic Card</p><p className="text-xs text-muted-foreground">Wallet funds → virtual spending limit / Wallet-Guthaben → Limit</p></div><Button onClick={() => generateCryptoCard(balance)} variant="outline" className="min-h-[44px]">Generate / Erstellen</Button></div>
+              {cryptoCard && <div className="mt-4 rounded-2xl bg-primary p-4 text-primary-foreground"><div className="flex items-start justify-between"><div><p className="text-xs uppercase tracking-[0.2em] opacity-80">CKS Cryptographic Card</p><p className="mt-5 font-mono text-lg tracking-[0.18em]">•••• •••• •••• {cryptoCard.last4}</p></div><Lock className="h-5 w-5" /></div><div className="mt-4 flex justify-between text-xs"><span>Limit / Limit: {cryptoCard.limit} {network.symbol}</span><span>Virtual</span></div></div>}
             </div>
 
             {/* Security status */}
@@ -787,6 +792,19 @@ export default function CKSApp() {
                   <span>Keys in Settings</span>
                 </div>
               </div>
+            </div>
+          </TabsContent>
+
+          {/* ---- Spot Trading Tab ---- */}
+          <TabsContent value="spot" className="mt-4 flex flex-col gap-4">
+            <div className="glass rounded-2xl p-4">
+              <div className="mb-4 flex items-start justify-between gap-3"><div><p className="text-sm font-semibold text-foreground">MEXC Spot Trading</p><p className="text-xs text-muted-foreground">Live chart & order ticket / Live-Chart und Auftrag</p></div><Button variant="ghost" size="icon" onClick={() => refreshMexc()} className="min-h-[44px] min-w-[44px]" aria-label="Refresh MEXC data"><RefreshCw className="h-4 w-4" /></Button></div>
+              <div className="mb-4 grid grid-cols-2 gap-2"><Input aria-label="Trading symbol" value={mexcSymbol} onChange={(e) => setMexcSymbol(e.target.value.toUpperCase())} placeholder="BTCUSDT" className="min-h-[44px] font-mono uppercase" /><div className="rounded-xl bg-secondary/50 p-3"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Last price</p><p className="font-mono text-sm font-bold text-foreground">{mexcData?.ticker?.lastPrice || "—"}</p></div></div>
+              <ChartContainer config={{ price: { label: "Price / Preis", color: "var(--chart-1)" } }} className="min-h-[220px] w-full"><LineChart data={(mexcData?.candles || []).map((candle, index) => ({ time: index + 1, price: Number(candle[4]) }))}><CartesianGrid vertical={false} /><XAxis dataKey="time" tickLine={false} axisLine={false} tickFormatter={(value) => `${value}h`} /><YAxis domain={["auto", "auto"]} tickLine={false} axisLine={false} width={52} tickFormatter={(value) => Number(value).toFixed(2)} /><ChartTooltip content={<ChartTooltipContent />} /><Line type="monotone" dataKey="price" stroke="var(--color-price)" strokeWidth={2} dot={false} /></LineChart></ChartContainer>
+              {mexcError && <p className="rounded-xl bg-destructive/10 p-3 text-xs text-destructive">{mexcError.message}</p>}
+              <div className="mt-4 grid grid-cols-2 gap-2"><Select value={mexcSide} onValueChange={(value) => setMexcSide(value as "BUY" | "SELL")}><SelectTrigger className="min-h-[44px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="BUY">Buy / Kaufen</SelectItem><SelectItem value="SELL">Sell / Verkaufen</SelectItem></SelectContent></Select><Select value={mexcType} onValueChange={(value) => setMexcType(value as "MARKET" | "LIMIT")}><SelectTrigger className="min-h-[44px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="LIMIT">Limit</SelectItem><SelectItem value="MARKET">Market / Markt</SelectItem></SelectContent></Select><Input aria-label="Order quantity" value={mexcQuantity} onChange={(e) => setMexcQuantity(e.target.value)} placeholder="Quantity / Menge" inputMode="decimal" className="min-h-[44px]" />{mexcType === "LIMIT" && <Input aria-label="Limit price" value={mexcPrice} onChange={(e) => setMexcPrice(e.target.value)} placeholder="Price / Preis" inputMode="decimal" className="min-h-[44px]" />}</div>
+              <Button onClick={submitMexcOrder} disabled={mexcSubmitting || !mexcQuantity || (mexcType === "LIMIT" && !mexcPrice)} className="mt-3 min-h-[48px] w-full rounded-xl font-semibold">{mexcSubmitting ? <RefreshCw className="h-4 w-4 animate-spin" /> : <TrendingUp className="h-4 w-4" />}{mexcSide === "BUY" ? "Buy / Kaufen" : "Sell / Verkaufen"} {mexcSymbol}</Button>{mexcNotice && <p className="mt-3 text-xs text-muted-foreground">{mexcNotice}</p>}
+              <p className="mt-3 text-[10px] leading-relaxed text-muted-foreground">Trading only, no withdrawals. / Nur Handel, keine Auszahlungen.</p>
             </div>
           </TabsContent>
 
