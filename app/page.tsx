@@ -476,94 +476,74 @@ export default function CKSApp() {
   // ---------------------------------------------------------------------------
   if (view === "onboarding") {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-4 py-8 bg-background">
-        <div className="w-full max-w-md mx-auto flex flex-col items-center gap-6">
-          {/* Logo */}
-          <div className="flex flex-col items-center gap-3">
-            <SecBadge size={80} className="ring-2 ring-primary/30" />
-            <h1 className="text-3xl font-bold text-foreground tracking-tight">CKS</h1>
-            <p className="text-sm text-muted-foreground text-center">
-              Your Crypto. Your Keys. Your Control.
-            </p>
-          </div>
-
-          {/* Tabs: Create / Recover */}
-          <Tabs defaultValue="create" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 bg-secondary/50 min-h-[48px]">
-              <TabsTrigger value="create" className="min-h-[44px] gap-2 font-semibold">
-                <Shield className="w-4 h-4" />
-                Create
-              </TabsTrigger>
-              <TabsTrigger value="recover" className="min-h-[44px] gap-2 font-semibold">
-                <KeyRound className="w-4 h-4" />
-                Recover
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="create">
-              <div className="glass rounded-2xl p-6 mt-4">
-                <div className="flex items-center gap-3 mb-4">
-                  <SecBadge size={28} />
-                  <h2 className="text-lg font-semibold text-foreground">New Wallet</h2>
-                </div>
-                <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
-                  Generate a brand new Ethereum wallet with a secure 12-word recovery phrase.
-                  Your keys never leave this device.
-                </p>
-                <Button
-                  onClick={createWallet}
-                  disabled={isLoading}
-                  className="w-full min-h-[52px] text-base font-semibold rounded-xl"
-                >
-                  {isLoading ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Shield className="w-5 h-5" />}
-                  {isLoading ? "Generating..." : "Create Wallet"}
-                </Button>
+      <main className="min-h-screen bg-background px-4 py-5 sm:px-8 sm:py-8">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-10">
+          <header className="flex items-center justify-between border-b border-border pb-4">
+            <div className="flex items-center gap-3">
+              <SecBadge size={42} className="rounded-xl shadow-sm" />
+              <div>
+                <p className="text-lg font-bold tracking-tight text-foreground">CKS</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">Crypto Klein Shop</p>
               </div>
-            </TabsContent>
+            </div>
+            <div className="hidden items-center gap-2 text-xs font-medium text-muted-foreground sm:flex">
+              <span className="h-2 w-2 rounded-full bg-primary" />
+              Non-custodial · Selbstverwahrt
+            </div>
+          </header>
 
-            <TabsContent value="recover">
-              <div className="glass rounded-2xl p-6 mt-4">
-                <div className="flex items-center gap-3 mb-4">
-                  <SecBadge size={28} />
-                  <h2 className="text-lg font-semibold text-foreground">Recover Wallet</h2>
-                </div>
-                <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
-                  Enter your 12-word mnemonic phrase to restore access to your wallet.
+          <section className="grid items-center gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:gap-16">
+            <div className="space-y-6">
+              <Badge className="rounded-full border-primary/20 bg-primary/10 px-3 py-1 text-primary hover:bg-primary/10">
+                <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
+                Self-custody / Selbstverwahrung
+              </Badge>
+              <div className="space-y-4">
+                <h1 className="max-w-2xl text-4xl font-bold leading-[1.08] tracking-tight text-foreground sm:text-6xl">
+                  Your Crypto.<br /><span className="text-primary">Your Keys.</span><br />Your Control.
+                </h1>
+                <p className="max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+                  Die moderne Wallet für digitale Souveränität — sicher, transparent und ohne Zwischenhändler.
+                  <span className="mt-2 block">A modern wallet for digital sovereignty — secure, transparent, and without intermediaries.</span>
                 </p>
-                <div className="space-y-3">
-                  <Label htmlFor="recover-phrase" className="text-foreground">Recovery Phrase</Label>
-                  <Textarea
-                    id="recover-phrase"
-                    placeholder="word1 word2 word3 ... word12"
-                    value={recoverPhrase}
-                    onChange={(e) => setRecoverPhrase(e.target.value)}
-                    className="min-h-[88px] resize-none font-mono text-sm"
-                  />
-                </div>
-                {recoverError && (
-                  <div className="flex items-center gap-2 mt-3 text-destructive text-sm">
-                    <AlertTriangle className="w-4 h-4 shrink-0" />
-                    {recoverError}
+              </div>
+              <div className="grid max-w-xl grid-cols-3 gap-3 border-y border-border py-4">
+                <div><p className="text-lg font-bold text-foreground">100%</p><p className="text-[11px] leading-tight text-muted-foreground">Non-custodial<br />Selbstverwahrt</p></div>
+                <div><p className="text-lg font-bold text-foreground">5+</p><p className="text-[11px] leading-tight text-muted-foreground">Mainnets<br />Netzwerke</p></div>
+                <div><p className="text-lg font-bold text-foreground">0</p><p className="text-[11px] leading-tight text-muted-foreground">Middlemen<br />Zwischenhändler</p></div>
+              </div>
+            </div>
+
+            <div className="glass rounded-3xl p-5 shadow-xl shadow-primary/5 sm:p-7">
+              <div className="mb-5 flex items-center justify-between">
+                <div><p className="text-xl font-bold text-foreground">Start securely</p><p className="text-sm text-muted-foreground">Sicher starten</p></div>
+                <Lock className="h-5 w-5 text-primary" />
+              </div>
+              <Tabs defaultValue="create" className="w-full">
+                <TabsList className="grid min-h-[48px] w-full grid-cols-2 bg-secondary/60">
+                  <TabsTrigger value="create" className="min-h-[44px] gap-1 px-1 text-xs font-semibold sm:gap-2 sm:text-sm"><Shield className="h-4 w-4 shrink-0" />Erstellen / Create</TabsTrigger>
+                  <TabsTrigger value="recover" className="min-h-[44px] gap-1 px-1 text-xs font-semibold sm:gap-2 sm:text-sm"><KeyRound className="h-4 w-4 shrink-0" />Wiederherstellen / Recover</TabsTrigger>
+                </TabsList>
+                <TabsContent value="create">
+                  <div className="space-y-5 pt-5">
+                    <div className="flex items-start gap-3"><div className="rounded-xl bg-primary/10 p-2 text-primary"><Wallet className="h-5 w-5" /></div><div><h2 className="font-semibold text-foreground">Neue Wallet erstellen</h2><p className="mt-1 text-sm leading-relaxed text-muted-foreground">Generate a new Ethereum wallet with a secure 12-word recovery phrase. Your keys never leave this device.</p></div></div>
+                    <Button onClick={createWallet} disabled={isLoading} className="min-h-[52px] w-full rounded-xl text-base font-semibold">{isLoading ? <RefreshCw className="h-5 w-5 animate-spin" /> : <Shield className="h-5 w-5" />}{isLoading ? "Generating..." : "Wallet erstellen / Create wallet"}</Button>
                   </div>
-                )}
-                <Button
-                  onClick={recoverWallet}
-                  className="w-full mt-4 min-h-[52px] text-base font-semibold rounded-xl"
-                >
-                  <Download className="w-5 h-5" />
-                  Recover Wallet
-                </Button>
-              </div>
-            </TabsContent>
-          </Tabs>
+                </TabsContent>
+                <TabsContent value="recover">
+                  <div className="space-y-4 pt-5"><div><h2 className="font-semibold text-foreground">Wallet wiederherstellen</h2><p className="mt-1 text-sm text-muted-foreground">Enter your 12-word phrase to restore access. / Gib deine 12 Wörter ein.</p></div><div className="space-y-2"><Label htmlFor="recover-phrase" className="text-foreground">Recovery phrase / Wiederherstellungsphrase</Label><Textarea id="recover-phrase" placeholder="word1 word2 word3 ... word12" value={recoverPhrase} onChange={(e) => setRecoverPhrase(e.target.value)} className="min-h-[96px] resize-none font-mono text-sm" /></div>{recoverError && <div className="flex items-center gap-2 text-sm text-destructive"><AlertTriangle className="h-4 w-4 shrink-0" />{recoverError}</div>}<Button onClick={recoverWallet} className="min-h-[52px] w-full rounded-xl text-base font-semibold"><Download className="h-5 w-5" />Wiederherstellen / Recover</Button></div>
+                </TabsContent>
+              </Tabs>
+              <div className="mt-5 flex items-start gap-2 border-t border-border pt-4 text-xs leading-relaxed text-muted-foreground"><Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" /><span>Keys never leave your browser. / Deine Schlüssel verlassen niemals deinen Browser.</span></div>
+            </div>
+          </section>
 
-          {/* Footer badge */}
-          <div className="flex items-center gap-2 text-xs text-muted-foreground mt-4">
-            <Lock className="w-3.5 h-3.5" />
-            <span>Client-side only. Keys never leave your browser.</span>
-          </div>
+          <section className="grid gap-3 border-t border-border pt-6 sm:grid-cols-3">
+            {[{ icon: ShieldCheck, title: "Sicher by design", text: "Private keys stay on your device. / Private Schlüssel bleiben auf deinem Gerät." }, { icon: Globe, title: "Multi-network", text: "Ethereum, Polygon, BNB, Arbitrum & Avalanche." }, { icon: Fingerprint, title: "Du hast die Kontrolle", text: "No accounts, no tracking, no gatekeepers. / Keine Konten, kein Tracking." }].map(({ icon: Icon, title, text }) => <div key={title} className="flex gap-3 rounded-2xl border border-border bg-card/70 p-4"><Icon className="mt-0.5 h-5 w-5 shrink-0 text-primary" /><div><p className="text-sm font-semibold text-foreground">{title}</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{text}</p></div></div>)}
+          </section>
+          <footer className="text-center text-xs text-muted-foreground">© 2026 CKS Crypto Klein Shop · Made for sovereign finance / Für souveräne Finanzen</footer>
         </div>
-      </div>
+      </main>
     )
   }
 
