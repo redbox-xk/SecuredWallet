@@ -8,9 +8,9 @@ const _inter = Inter({ subsets: ["latin"] });
 const _jetbrainsMono = JetBrains_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "SecWallet - Secure Ethereum Wallet",
+  title: "CKS — Crypto Klein Shop | Self-Custody Wallet",
   description:
-    "Lightweight, secure Ethereum wallet. Create, recover, send and receive ETH across multiple networks with real-time market data.",
+    "Your Crypto. Your Keys. Your Control. A premium self-custody wallet for secure multi-network Web3 finance.",
   keywords: [
     "Crypto",
     "Wallet",
@@ -24,18 +24,18 @@ export const metadata: Metadata = {
   authors: [{ name: "SecWallet" }],
   manifest: "/manifest.json",
   openGraph: {
-    title: "SecWallet - Secure Ethereum Wallet",
+    title: "CKS — Crypto Klein Shop | Self-Custody Wallet",
     description:
-      "Lightweight, secure Ethereum wallet with multi-network support and real-time market data.",
+      "Premium self-custody wallet with multi-network support and transparent Web3 finance tools.",
     type: "website",
-    images: ["/sec-badge.jpg"],
+    images: ["https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Image-5D6E2D7A-WUg9vcEYXUynN6pyVtfGpBo0hTdDwR.jpeg"],
   },
   twitter: {
     card: "summary_large_image",
-    title: "SecWallet - Secure Ethereum Wallet",
+    title: "CKS — Crypto Klein Shop | Self-Custody Wallet",
     description:
-      "Lightweight, secure Ethereum wallet with multi-network support and real-time market data.",
-    images: ["/sec-badge.jpg"],
+      "Premium self-custody wallet with multi-network support and transparent Web3 finance tools.",
+    images: ["https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Image-5D6E2D7A-WUg9vcEYXUynN6pyVtfGpBo0hTdDwR.jpeg"],
   },
   icons: {
     icon: "/sec-badge.jpg",
@@ -48,7 +48,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  themeColor: "#0a0f1a",
+  themeColor: "#F5F2E9",
 };
 
 export default function RootLayout({
