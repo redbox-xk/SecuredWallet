@@ -164,8 +164,8 @@ function formatUsd(n: number) {
 function SecBadge({ size = 32, className = "" }: { size?: number; className?: string }) {
   return (
     <Image
-      src="/sec-badge.jpg"
-      alt="SecWallet"
+      src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Image-5D6E2D7A-WUg9vcEYXUynN6pyVtfGpBo0hTdDwR.jpeg"
+      alt="CKS Crypto Klein Shop logo"
       width={size}
       height={size}
       className={`rounded-full ${className}`}
@@ -220,7 +220,7 @@ function Sparkline({ data, positive }: { data: number[]; positive: boolean }) {
 // ---------------------------------------------------------------------------
 // Main App
 // ---------------------------------------------------------------------------
-export default function SecWalletApp() {
+export default function CKSApp() {
   const [view, setView] = useState<AppView>("onboarding")
   const [wallet, setWallet] = useState<ethers.HDNodeWallet | null>(null)
   const [mnemonic, setMnemonic] = useState("")
@@ -481,9 +481,9 @@ export default function SecWalletApp() {
           {/* Logo */}
           <div className="flex flex-col items-center gap-3">
             <SecBadge size={80} className="ring-2 ring-primary/30" />
-            <h1 className="text-3xl font-bold text-foreground tracking-tight">SecWallet</h1>
+            <h1 className="text-3xl font-bold text-foreground tracking-tight">CKS</h1>
             <p className="text-sm text-muted-foreground text-center">
-              Secure. Transparent. Trustworthy.
+              Your Crypto. Your Keys. Your Control.
             </p>
           </div>
 
@@ -577,7 +577,7 @@ export default function SecWalletApp() {
         <div className="flex items-center justify-between max-w-lg mx-auto">
           <div className="flex items-center gap-2.5">
             <SecBadge size={32} />
-            <span className="font-bold text-lg text-foreground tracking-tight">SecWallet</span>
+            <span className="font-bold text-lg text-foreground tracking-tight">CKS</span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -702,7 +702,7 @@ export default function SecWalletApp() {
             <div className="glass rounded-2xl p-4">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Image src="/sec-badge.jpg" alt="" width={28} height={28} className="rounded-full" />
+                  <Image src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Image-5D6E2D7A-WUg9vcEYXUynN6pyVtfGpBo0hTdDwR.jpeg" alt="" width={28} height={28} className="rounded-full" />
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-foreground">{network.symbol}</p>
