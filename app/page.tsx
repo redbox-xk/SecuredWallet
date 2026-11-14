@@ -19,6 +19,8 @@ import {
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts"
 import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
@@ -52,6 +54,7 @@ import {
   TrendingUp,
   TrendingDown,
   Coins,
+  CreditCard,
   ShieldCheck,
   Fingerprint,
 } from "lucide-react"
@@ -136,6 +139,13 @@ interface CoinData {
   sparkline_in_7d?: { price: number[] }
 }
 
+interface MexcData {
+  account: { balances?: Array<{ asset: string; free: string; locked: string }> }
+  ticker: { lastPrice?: string; priceChangePercent?: string; highPrice?: string; lowPrice?: string; volume?: string }
+  candles: Array<[number, string, string, string, string, string]>
+  orders: Array<{ orderId: string; side: string; type: string; price: string; origQty: string; executedQty: string; status: string }>
+}
+
 type AppView = "onboarding" | "dashboard"
 
 // ---------------------------------------------------------------------------
@@ -164,8 +174,8 @@ function formatUsd(n: number) {
 function SecBadge({ size = 32, className = "" }: { size?: number; className?: string }) {
   return (
     <Image
-      src="/sec-badge.jpg"
-      alt="SecWallet"
+      src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Image-5D6E2D7A-WUg9vcEYXUynN6pyVtfGpBo0hTdDwR.jpeg"
+      alt="CKS Crypto Klein Shop logo"
       width={size}
       height={size}
       className={`rounded-full ${className}`}
@@ -181,10 +191,14 @@ const COINGECKO_MARKETS =
   "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=120&page=1&sparkline=true&price_change_percentage=24h"
 
 async function fetchMarkets(url: string): Promise<CoinData[]> {
-  const res = await fetch(url, {
-    headers: { Accept: "application/json" },
-  })
+  const res = await fetch(url, { headers: { Accept: "application/json" } })
   if (!res.ok) throw new Error("CoinGecko API error")
+  return res.json()
+}
+
+async function fetchJson<T>(url: string): Promise<T> {
+  const res = await fetch(url, { headers: { Accept: "application/json" } })
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || "Request failed")
   return res.json()
 }
 
@@ -220,7 +234,7 @@ function Sparkline({ data, positive }: { data: number[]; positive: boolean }) {
 // ---------------------------------------------------------------------------
 // Main App
 // ---------------------------------------------------------------------------
-export default function SecWalletApp() {
+export default function CKSApp() {
   const [view, setView] = useState<AppView>("onboarding")
   const [wallet, setWallet] = useState<ethers.HDNodeWallet | null>(null)
   const [mnemonic, setMnemonic] = useState("")
@@ -232,6 +246,15 @@ export default function SecWalletApp() {
   const [copied, setCopied] = useState(false)
   const [activeTab, setActiveTab] = useState("wallet")
   const [coinSearch, setCoinSearch] = useState("")
+  const [mexcSymbol, setMexcSymbol] = useState("BTCUSDT")
+  const [mexcSide, setMexcSide] = useState<"BUY" | "SELL">("BUY")
+  const [mexcType, setMexcType] = useState<"MARKET" | "LIMIT">("LIMIT")
+  const [mexcQuantity, setMexcQuantity] = useState("")
+  const [mexcPrice, setMexcPrice] = useState("")
+  const [mexcNotice, setMexcNotice] = useState("")
+  const [mexcSubmitting, setMexcSubmitting] = useState(false)
+  const [cardAmount, setCardAmount] = useState("")
+  const [cryptoCard, setCryptoCard] = useState<{ id: string; last4: string; limit: string } | null>(null)
 
   // Privacy
   const [settingsShowPhrase, setSettingsShowPhrase] = useState(false)
@@ -264,6 +287,38 @@ export default function SecWalletApp() {
     fetchMarkets,
     { refreshInterval: 60000, revalidateOnFocus: false, dedupingInterval: 30000 }
   )
+  const { data: mexcData, error: mexcError, mutate: refreshMexc } = useSWR<MexcData>(
+    view === "dashboard" ? `/api/mexc?symbol=${encodeURIComponent(mexcSymbol)}` : null,
+    fetchJson,
+    { refreshInterval: 30000, revalidateOnFocus: false }
+  )
+
+  const generateCryptoCard = (requestedAmount = cardAmount) => {
+    const amount = Number(requestedAmount)
+    if (!Number.isFinite(amount) || amount <= 0 || amount > Number(balance)) return
+    const cardSeed = `${wallet?.address || "local-wallet"}-${amount}-${Date.now()}`
+    const id = ethers.keccak256(ethers.toUtf8Bytes(cardSeed)).slice(2, 14).toUpperCase()
+    setCryptoCard({ id, last4: id.slice(-4), limit: amount.toFixed(2) })
+  }
+
+  const submitMexcOrder = async () => {
+    const orderSummary = `${mexcSide} ${mexcQuantity} ${mexcSymbol}${mexcType === "LIMIT" ? ` at ${mexcPrice}` : " at market price"}`
+    if (!window.confirm(`Confirm MEXC order / MEXC-Auftrag bestätigen:\n\n${orderSummary}`)) return
+    setMexcSubmitting(true)
+    setMexcNotice("")
+    try {
+      const response = await fetch("/api/mexc", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbol: mexcSymbol, side: mexcSide, type: mexcType, quantity: mexcQuantity, price: mexcType === "LIMIT" ? mexcPrice : undefined }) })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || "Order rejected")
+      setMexcNotice(`Order ${result.order?.orderId || "submitted"} accepted / Auftrag angenommen`)
+      setMexcQuantity("")
+      await refreshMexc()
+    } catch (error) {
+      setMexcNotice(error instanceof Error ? error.message : "Order failed")
+    } finally {
+      setMexcSubmitting(false)
+    }
+  }
 
   const filteredCoins = useMemo(() => {
     if (!coins) return []
@@ -476,94 +531,74 @@ export default function SecWalletApp() {
   // ---------------------------------------------------------------------------
   if (view === "onboarding") {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-4 py-8 bg-background">
-        <div className="w-full max-w-md mx-auto flex flex-col items-center gap-6">
-          {/* Logo */}
-          <div className="flex flex-col items-center gap-3">
-            <SecBadge size={80} className="ring-2 ring-primary/30" />
-            <h1 className="text-3xl font-bold text-foreground tracking-tight">SecWallet</h1>
-            <p className="text-sm text-muted-foreground text-center">
-              Secure. Transparent. Trustworthy.
-            </p>
-          </div>
-
-          {/* Tabs: Create / Recover */}
-          <Tabs defaultValue="create" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 bg-secondary/50 min-h-[48px]">
-              <TabsTrigger value="create" className="min-h-[44px] gap-2 font-semibold">
-                <Shield className="w-4 h-4" />
-                Create
-              </TabsTrigger>
-              <TabsTrigger value="recover" className="min-h-[44px] gap-2 font-semibold">
-                <KeyRound className="w-4 h-4" />
-                Recover
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="create">
-              <div className="glass rounded-2xl p-6 mt-4">
-                <div className="flex items-center gap-3 mb-4">
-                  <SecBadge size={28} />
-                  <h2 className="text-lg font-semibold text-foreground">New Wallet</h2>
-                </div>
-                <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
-                  Generate a brand new Ethereum wallet with a secure 12-word recovery phrase.
-                  Your keys never leave this device.
-                </p>
-                <Button
-                  onClick={createWallet}
-                  disabled={isLoading}
-                  className="w-full min-h-[52px] text-base font-semibold rounded-xl"
-                >
-                  {isLoading ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Shield className="w-5 h-5" />}
-                  {isLoading ? "Generating..." : "Create Wallet"}
-                </Button>
+      <main className="min-h-screen bg-background px-4 py-5 sm:px-8 sm:py-8">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-10">
+          <header className="flex items-center justify-between border-b border-border pb-4">
+            <div className="flex items-center gap-3">
+              <SecBadge size={42} className="rounded-xl shadow-sm" />
+              <div>
+                <p className="text-lg font-bold tracking-tight text-foreground">CKS</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">Crypto Klein Shop</p>
               </div>
-            </TabsContent>
+            </div>
+            <div className="hidden items-center gap-2 text-xs font-medium text-muted-foreground sm:flex">
+              <span className="h-2 w-2 rounded-full bg-primary" />
+              Non-custodial · Selbstverwahrt
+            </div>
+          </header>
 
-            <TabsContent value="recover">
-              <div className="glass rounded-2xl p-6 mt-4">
-                <div className="flex items-center gap-3 mb-4">
-                  <SecBadge size={28} />
-                  <h2 className="text-lg font-semibold text-foreground">Recover Wallet</h2>
-                </div>
-                <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
-                  Enter your 12-word mnemonic phrase to restore access to your wallet.
+          <section className="grid items-center gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:gap-16">
+            <div className="space-y-6">
+              <Badge className="rounded-full border-primary/20 bg-primary/10 px-3 py-1 text-primary hover:bg-primary/10">
+                <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
+                Self-custody / Selbstverwahrung
+              </Badge>
+              <div className="space-y-4">
+                <h1 className="max-w-2xl text-4xl font-bold leading-[1.08] tracking-tight text-foreground sm:text-6xl">
+                  Your Crypto.<br /><span className="text-primary">Your Keys.</span><br />Your Control.
+                </h1>
+                <p className="max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+                  Die moderne Wallet für digitale Souveränität — sicher, transparent und ohne Zwischenhändler.
+                  <span className="mt-2 block">A modern wallet for digital sovereignty — secure, transparent, and without intermediaries.</span>
                 </p>
-                <div className="space-y-3">
-                  <Label htmlFor="recover-phrase" className="text-foreground">Recovery Phrase</Label>
-                  <Textarea
-                    id="recover-phrase"
-                    placeholder="word1 word2 word3 ... word12"
-                    value={recoverPhrase}
-                    onChange={(e) => setRecoverPhrase(e.target.value)}
-                    className="min-h-[88px] resize-none font-mono text-sm"
-                  />
-                </div>
-                {recoverError && (
-                  <div className="flex items-center gap-2 mt-3 text-destructive text-sm">
-                    <AlertTriangle className="w-4 h-4 shrink-0" />
-                    {recoverError}
+              </div>
+              <div className="grid max-w-xl grid-cols-3 gap-3 border-y border-border py-4">
+                <div><p className="text-lg font-bold text-foreground">100%</p><p className="text-[11px] leading-tight text-muted-foreground">Non-custodial<br />Selbstverwahrt</p></div>
+                <div><p className="text-lg font-bold text-foreground">5+</p><p className="text-[11px] leading-tight text-muted-foreground">Mainnets<br />Netzwerke</p></div>
+                <div><p className="text-lg font-bold text-foreground">0</p><p className="text-[11px] leading-tight text-muted-foreground">Middlemen<br />Zwischenhändler</p></div>
+              </div>
+            </div>
+
+            <div className="glass rounded-3xl p-5 shadow-xl shadow-primary/5 sm:p-7">
+              <div className="mb-5 flex items-center justify-between">
+                <div><p className="text-xl font-bold text-foreground">Start securely</p><p className="text-sm text-muted-foreground">Sicher starten</p></div>
+                <Lock className="h-5 w-5 text-primary" />
+              </div>
+              <Tabs defaultValue="create" className="w-full">
+                <TabsList className="grid min-h-[48px] w-full grid-cols-2 bg-secondary/60">
+                  <TabsTrigger value="create" className="min-h-[44px] gap-1 px-1 text-xs font-semibold sm:gap-2 sm:text-sm"><Shield className="h-4 w-4 shrink-0" />Erstellen / Create</TabsTrigger>
+                  <TabsTrigger value="recover" className="min-h-[44px] gap-1 px-1 text-xs font-semibold sm:gap-2 sm:text-sm"><KeyRound className="h-4 w-4 shrink-0" />Wiederherstellen / Recover</TabsTrigger>
+                </TabsList>
+                <TabsContent value="create">
+                  <div className="space-y-5 pt-5">
+                    <div className="flex items-start gap-3"><div className="rounded-xl bg-primary/10 p-2 text-primary"><Wallet className="h-5 w-5" /></div><div><h2 className="font-semibold text-foreground">Neue Wallet erstellen</h2><p className="mt-1 text-sm leading-relaxed text-muted-foreground">Generate a new Ethereum wallet with a secure 12-word recovery phrase. Your keys never leave this device.</p></div></div>
+                    <Button onClick={createWallet} disabled={isLoading} className="min-h-[52px] w-full rounded-xl text-base font-semibold">{isLoading ? <RefreshCw className="h-5 w-5 animate-spin" /> : <Shield className="h-5 w-5" />}{isLoading ? "Generating..." : "Wallet erstellen / Create wallet"}</Button>
                   </div>
-                )}
-                <Button
-                  onClick={recoverWallet}
-                  className="w-full mt-4 min-h-[52px] text-base font-semibold rounded-xl"
-                >
-                  <Download className="w-5 h-5" />
-                  Recover Wallet
-                </Button>
-              </div>
-            </TabsContent>
-          </Tabs>
+                </TabsContent>
+                <TabsContent value="recover">
+                  <div className="space-y-4 pt-5"><div><h2 className="font-semibold text-foreground">Wallet wiederherstellen</h2><p className="mt-1 text-sm text-muted-foreground">Enter your 12-word phrase to restore access. / Gib deine 12 Wörter ein.</p></div><div className="space-y-2"><Label htmlFor="recover-phrase" className="text-foreground">Recovery phrase / Wiederherstellungsphrase</Label><Textarea id="recover-phrase" placeholder="word1 word2 word3 ... word12" value={recoverPhrase} onChange={(e) => setRecoverPhrase(e.target.value)} className="min-h-[96px] resize-none font-mono text-sm" /></div>{recoverError && <div className="flex items-center gap-2 text-sm text-destructive"><AlertTriangle className="h-4 w-4 shrink-0" />{recoverError}</div>}<Button onClick={recoverWallet} className="min-h-[52px] w-full rounded-xl text-base font-semibold"><Download className="h-5 w-5" />Wiederherstellen / Recover</Button></div>
+                </TabsContent>
+              </Tabs>
+              <div className="mt-5 flex items-start gap-2 border-t border-border pt-4 text-xs leading-relaxed text-muted-foreground"><Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" /><span>Keys never leave your browser. / Deine Schlüssel verlassen niemals deinen Browser.</span></div>
+            </div>
+          </section>
 
-          {/* Footer badge */}
-          <div className="flex items-center gap-2 text-xs text-muted-foreground mt-4">
-            <Lock className="w-3.5 h-3.5" />
-            <span>Client-side only. Keys never leave your browser.</span>
-          </div>
+          <section className="grid gap-3 border-t border-border pt-6 sm:grid-cols-3">
+            {[{ icon: ShieldCheck, title: "Sicher by design", text: "Private keys stay on your device. / Private Schlüssel bleiben auf deinem Gerät." }, { icon: Globe, title: "Multi-network", text: "Ethereum, Polygon, BNB, Arbitrum & Avalanche." }, { icon: Fingerprint, title: "Du hast die Kontrolle", text: "No accounts, no tracking, no gatekeepers. / Keine Konten, kein Tracking." }].map(({ icon: Icon, title, text }) => <div key={title} className="flex gap-3 rounded-2xl border border-border bg-card/70 p-4"><Icon className="mt-0.5 h-5 w-5 shrink-0 text-primary" /><div><p className="text-sm font-semibold text-foreground">{title}</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{text}</p></div></div>)}
+          </section>
+          <footer className="text-center text-xs text-muted-foreground">© 2026 CKS Crypto Klein Shop · Made for sovereign finance / Für souveräne Finanzen</footer>
         </div>
-      </div>
+      </main>
     )
   }
 
@@ -577,7 +612,7 @@ export default function SecWalletApp() {
         <div className="flex items-center justify-between max-w-lg mx-auto">
           <div className="flex items-center gap-2.5">
             <SecBadge size={32} />
-            <span className="font-bold text-lg text-foreground tracking-tight">SecWallet</span>
+            <span className="font-bold text-lg text-foreground tracking-tight">CKS</span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -682,7 +717,7 @@ export default function SecWalletApp() {
 
         {/* Tabs: Wallet / Markets / Activity */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 bg-secondary/50 min-h-[48px]">
+          <TabsList className="grid w-full grid-cols-4 bg-secondary/50 min-h-[48px]">
             <TabsTrigger value="wallet" className="min-h-[44px] gap-1.5 text-xs font-semibold">
               <SecBadge size={16} />
               Wallet
@@ -690,6 +725,10 @@ export default function SecWalletApp() {
             <TabsTrigger value="markets" className="min-h-[44px] gap-1.5 text-xs font-semibold">
               <SecBadge size={16} />
               Markets
+            </TabsTrigger>
+            <TabsTrigger value="spot" className="min-h-[44px] gap-1.5 text-xs font-semibold">
+              <TrendingUp className="h-4 w-4" />
+              Spot
             </TabsTrigger>
             <TabsTrigger value="activity" className="min-h-[44px] gap-1.5 text-xs font-semibold">
               <SecBadge size={16} />
@@ -702,7 +741,7 @@ export default function SecWalletApp() {
             <div className="glass rounded-2xl p-4">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Image src="/sec-badge.jpg" alt="" width={28} height={28} className="rounded-full" />
+                  <Image src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Image-5D6E2D7A-WUg9vcEYXUynN6pyVtfGpBo0hTdDwR.jpeg" alt="" width={28} height={28} className="rounded-full" />
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-foreground">{network.symbol}</p>
@@ -717,6 +756,11 @@ export default function SecWalletApp() {
                   )}
                 </div>
               </div>
+            </div>
+
+            <div className="glass rounded-2xl p-4">
+              <div className="flex items-center gap-3"><div className="rounded-xl bg-primary/10 p-2 text-primary"><CreditCard className="h-5 w-5" /></div><div className="flex-1"><p className="text-sm font-semibold text-foreground">Digital Cryptographic Card</p><p className="text-xs text-muted-foreground">Wallet funds → virtual spending limit / Wallet-Guthaben → Limit</p></div><Button onClick={() => generateCryptoCard(balance)} variant="outline" className="min-h-[44px]">Generate / Erstellen</Button></div>
+              {cryptoCard && <div className="mt-4 rounded-2xl bg-primary p-4 text-primary-foreground"><div className="flex items-start justify-between"><div><p className="text-xs uppercase tracking-[0.2em] opacity-80">CKS Cryptographic Card</p><p className="mt-5 font-mono text-lg tracking-[0.18em]">•••• •••• •••• {cryptoCard.last4}</p></div><Lock className="h-5 w-5" /></div><div className="mt-4 flex justify-between text-xs"><span>Limit / Limit: {cryptoCard.limit} {network.symbol}</span><span>Virtual</span></div></div>}
             </div>
 
             {/* Security status */}
@@ -748,6 +792,19 @@ export default function SecWalletApp() {
                   <span>Keys in Settings</span>
                 </div>
               </div>
+            </div>
+          </TabsContent>
+
+          {/* ---- Spot Trading Tab ---- */}
+          <TabsContent value="spot" className="mt-4 flex flex-col gap-4">
+            <div className="glass rounded-2xl p-4">
+              <div className="mb-4 flex items-start justify-between gap-3"><div><p className="text-sm font-semibold text-foreground">MEXC Spot Trading</p><p className="text-xs text-muted-foreground">Live chart & order ticket / Live-Chart und Auftrag</p></div><Button variant="ghost" size="icon" onClick={() => refreshMexc()} className="min-h-[44px] min-w-[44px]" aria-label="Refresh MEXC data"><RefreshCw className="h-4 w-4" /></Button></div>
+              <div className="mb-4 grid grid-cols-2 gap-2"><Input aria-label="Trading symbol" value={mexcSymbol} onChange={(e) => setMexcSymbol(e.target.value.toUpperCase())} placeholder="BTCUSDT" className="min-h-[44px] font-mono uppercase" /><div className="rounded-xl bg-secondary/50 p-3"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">Last price</p><p className="font-mono text-sm font-bold text-foreground">{mexcData?.ticker?.lastPrice || "—"}</p></div></div>
+              <ChartContainer config={{ price: { label: "Price / Preis", color: "var(--chart-1)" } }} className="min-h-[220px] w-full"><LineChart data={(mexcData?.candles || []).map((candle, index) => ({ time: index + 1, price: Number(candle[4]) }))}><CartesianGrid vertical={false} /><XAxis dataKey="time" tickLine={false} axisLine={false} tickFormatter={(value) => `${value}h`} /><YAxis domain={["auto", "auto"]} tickLine={false} axisLine={false} width={52} tickFormatter={(value) => Number(value).toFixed(2)} /><ChartTooltip content={<ChartTooltipContent />} /><Line type="monotone" dataKey="price" stroke="var(--color-price)" strokeWidth={2} dot={false} /></LineChart></ChartContainer>
+              {mexcError && <p className="rounded-xl bg-destructive/10 p-3 text-xs text-destructive">{mexcError.message}</p>}
+              <div className="mt-4 grid grid-cols-2 gap-2"><Select value={mexcSide} onValueChange={(value) => setMexcSide(value as "BUY" | "SELL")}><SelectTrigger className="min-h-[44px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="BUY">Buy / Kaufen</SelectItem><SelectItem value="SELL">Sell / Verkaufen</SelectItem></SelectContent></Select><Select value={mexcType} onValueChange={(value) => setMexcType(value as "MARKET" | "LIMIT")}><SelectTrigger className="min-h-[44px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="LIMIT">Limit</SelectItem><SelectItem value="MARKET">Market / Markt</SelectItem></SelectContent></Select><Input aria-label="Order quantity" value={mexcQuantity} onChange={(e) => setMexcQuantity(e.target.value)} placeholder="Quantity / Menge" inputMode="decimal" className="min-h-[44px]" />{mexcType === "LIMIT" && <Input aria-label="Limit price" value={mexcPrice} onChange={(e) => setMexcPrice(e.target.value)} placeholder="Price / Preis" inputMode="decimal" className="min-h-[44px]" />}</div>
+              <Button onClick={submitMexcOrder} disabled={mexcSubmitting || !mexcQuantity || (mexcType === "LIMIT" && !mexcPrice)} className="mt-3 min-h-[48px] w-full rounded-xl font-semibold">{mexcSubmitting ? <RefreshCw className="h-4 w-4 animate-spin" /> : <TrendingUp className="h-4 w-4" />}{mexcSide === "BUY" ? "Buy / Kaufen" : "Sell / Verkaufen"} {mexcSymbol}</Button>{mexcNotice && <p className="mt-3 text-xs text-muted-foreground">{mexcNotice}</p>}
+              <p className="mt-3 text-[10px] leading-relaxed text-muted-foreground">Trading only, no withdrawals. / Nur Handel, keine Auszahlungen.</p>
             </div>
           </TabsContent>
 

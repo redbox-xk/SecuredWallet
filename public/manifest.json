@@ -1,23 +1,15 @@
 {
-  "name": "SecWallet",
-  "short_name": "SecWallet",
-  "description": "Lightweight, secure Ethereum wallet. Create, recover, send and receive ETH across multiple networks.",
+  "name": "CKS — Crypto Klein Shop",
+  "short_name": "CKS",
+  "description": "Your Crypto. Your Keys. Your Control. Premium self-custody wallet for Web3 finance.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0a0f1a",
-  "theme_color": "#0a0f1a",
+  "background_color": "#F5F2E9",
+  "theme_color": "#F5F2E9",
   "orientation": "portrait-primary",
   "icons": [
-    {
-      "src": "/sec-badge.jpg",
-      "sizes": "192x192",
-      "type": "image/jpeg"
-    },
-    {
-      "src": "/sec-badge.jpg",
-      "sizes": "512x512",
-      "type": "image/jpeg"
-    }
+    { "src": "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Image-5D6E2D7A-WUg9vcEYXUynN6pyVtfGpBo0hTdDwR.jpeg", "sizes": "192x192", "type": "image/jpeg" },
+    { "src": "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Image-5D6E2D7A-WUg9vcEYXUynN6pyVtfGpBo0hTdDwR.jpeg", "sizes": "512x512", "type": "image/jpeg" }
   ],
   "categories": ["finance", "crypto"],
   "lang": "en"
