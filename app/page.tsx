@@ -55,6 +55,7 @@ import {
   TrendingDown,
   Coins,
   CreditCard,
+  Plus,
   ShieldCheck,
   Fingerprint,
 } from "lucide-react"
@@ -334,8 +335,10 @@ export default function CKSApp() {
   const balanceUsd = useMemo(() => {
     if (!coins) return null
     const match = coins.find((c) => c.id === network.coingeckoId)
-    if (!match) return null
-    return parseFloat(balance) * match.current_price
+    const numericBalance = Number(balance)
+    if (!match || !Number.isFinite(numericBalance)) return null
+    const total = numericBalance * match.current_price
+    return Number.isFinite(total) ? total : null
   }, [coins, balance, network.coingeckoId])
 
   const getProvider = useCallback(() => {
@@ -607,133 +610,34 @@ export default function CKSApp() {
   // ---------------------------------------------------------------------------
   return (
     <div className="min-h-screen bg-background pb-24">
-      {/* Header */}
-      <header className="sticky top-0 z-50 glass-strong px-4 py-3">
-        <div className="flex items-center justify-between max-w-lg mx-auto">
-          <div className="flex items-center gap-2.5">
-            <SecBadge size={32} />
-            <span className="font-bold text-lg text-foreground tracking-tight">CKS</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Select value={networkKey} onValueChange={setNetworkKey}>
-              <SelectTrigger className="w-auto min-h-[44px] text-xs font-medium bg-secondary/50 border-border gap-1.5 px-3">
-                <Globe className="w-3.5 h-3.5 text-primary" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(NETWORKS).map(([key, net]) => (
-                  <SelectItem key={key} value={key}>
-                    {net.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setShowSettings(true)}
-              className="min-h-[44px] min-w-[44px]"
-            >
-              <Settings className="w-5 h-5 text-muted-foreground" />
-            </Button>
-          </div>
+      <header className="sticky top-0 z-50 border-b border-border bg-card/95 px-4 py-3 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5"><SecBadge size={32} /><div><span className="font-bold tracking-tight text-foreground">CKS</span><span className="ml-2 hidden text-xs text-muted-foreground sm:inline">Crypto Klein Shop</span></div></div>
+          <div className="flex items-center gap-2"><Select value={networkKey} onValueChange={setNetworkKey}><SelectTrigger className="min-h-[44px] w-auto gap-1.5 border-border bg-secondary/50 px-3 text-xs font-medium"><Globe className="h-3.5 w-3.5 text-primary" /><SelectValue /></SelectTrigger><SelectContent>{Object.entries(NETWORKS).map(([key, net]) => <SelectItem key={key} value={key}>{net.name}</SelectItem>)}</SelectContent></Select><Button variant="outline" onClick={() => setShowSettings(true)} className="min-h-[44px] gap-2"><Settings className="h-4 w-4" /><span className="hidden sm:inline">Settings</span></Button></div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <div className="max-w-lg mx-auto px-4 pt-4 space-y-4">
-        {/* Balance Card */}
-        <div className="glass rounded-2xl p-5">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <SecBadge size={24} />
-              <span className="text-sm text-muted-foreground font-medium">Total Balance</span>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => { fetchBalance(); fetchGas() }}
-              className="min-h-[44px] min-w-[44px]"
-            >
-              <RefreshCw className="w-4 h-4 text-muted-foreground" />
-            </Button>
-          </div>
+      <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 pb-12 pt-5 sm:px-6 lg:gap-8 lg:px-8">
+        <section className="grid gap-5 lg:grid-cols-[1.4fr_0.6fr] lg:items-end">
+          <div><p className="text-sm font-medium text-muted-foreground">Your portfolio / Dein Portfolio</p><div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1"><span className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl">{balanceUsd !== null ? formatUsd(balanceUsd) : Number.isFinite(Number(balance)) ? `${Number(balance).toFixed(6)} ${network.symbol}` : "Balance unavailable"}</span>{balanceUsd !== null && <span className="text-sm text-muted-foreground">USD</span>}</div><p className="mt-2 text-xs text-muted-foreground">Self-custody wallet balance · {network.name}</p></div>
+          <div className="grid grid-cols-3 gap-2 sm:gap-3"><Button onClick={() => setActiveTab("spot")} className="min-h-[48px] rounded-full font-semibold"><Plus className="h-4 w-4" />Buy</Button><Button onClick={() => setShowSend(true)} variant="secondary" className="min-h-[48px] rounded-full font-semibold"><Send className="h-4 w-4" />Send</Button><Button onClick={() => setShowReceive(true)} variant="secondary" className="min-h-[48px] rounded-full font-semibold"><Download className="h-4 w-4" />Receive</Button></div>
+        </section>
 
-          <div className="flex items-baseline gap-2 mb-1">
-            <span className="text-3xl font-bold text-foreground font-mono">
-              {parseFloat(balance).toFixed(6)}
-            </span>
-            <span className="text-sm text-muted-foreground font-medium">{network.symbol}</span>
-          </div>
+        <section className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-2xl border border-border bg-card p-4"><div className="flex items-center justify-between"><p className="text-xs font-medium text-muted-foreground">Network / Netzwerk</p><Globe className="h-4 w-4 text-primary" /></div><p className="mt-2 font-semibold text-foreground">{network.name}</p><p className="mt-1 text-xs text-muted-foreground">Gas fee · {Number.isFinite(Number(gasPrice)) ? Number(gasPrice).toFixed(1) : "—"} Gwei</p></div>
+          <div className="rounded-2xl border border-border bg-card p-4"><div className="flex items-center justify-between"><p className="text-xs font-medium text-muted-foreground">Wallet address</p><button onClick={handleCopyAddress} className="flex min-h-[44px] min-w-[44px] items-center justify-center text-primary" aria-label="Copy wallet address">{copied ? <CheckCircle2 className="h-4 w-4" /> : <Copy className="h-4 w-4" />}</button></div><p className="font-mono text-sm font-semibold text-foreground">{wallet ? shortAddr(wallet.address) : ""}</p><p className="mt-1 text-xs text-muted-foreground">Self-custody · Keys stay yours</p></div>
+          <div className="rounded-2xl border border-border bg-card p-4"><div className="flex items-center justify-between"><p className="text-xs font-medium text-muted-foreground">Market pulse / Markt</p><span className="flex items-center gap-1.5 text-xs text-primary"><span className="size-2 rounded-full bg-primary" />Live</span></div><p className="mt-2 font-semibold text-foreground">Explore digital assets</p><p className="mt-1 text-xs text-muted-foreground">View prices, trends, and trading pairs.</p></div>
+        </section>
 
-          {balanceUsd !== null && (
-            <p className="text-sm text-primary font-medium">
-              {formatUsd(balanceUsd)} USD
-            </p>
-          )}
-
-          <Separator className="my-4 bg-border/50" />
-
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Fuel className="w-3.5 h-3.5" />
-              <span className="font-mono">{parseFloat(gasPrice).toFixed(1)} Gwei</span>
-            </div>
-            <button
-              onClick={handleCopyAddress}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors min-h-[44px] px-2"
-            >
-              {copied ? (
-                <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />
-              ) : (
-                <Copy className="w-3.5 h-3.5" />
-              )}
-              <span className="font-mono">{wallet ? shortAddr(wallet.address) : ""}</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="grid grid-cols-2 gap-3">
-          <Button
-            onClick={() => setShowSend(true)}
-            className="min-h-[52px] rounded-xl text-sm font-semibold"
-            size="lg"
-          >
-            <Send className="w-4 h-4" />
-            Send
-          </Button>
-          <Button
-            onClick={() => setShowReceive(true)}
-            variant="outline"
-            className="min-h-[52px] rounded-xl text-sm font-semibold border-border text-foreground"
-            size="lg"
-          >
-            <Download className="w-4 h-4" />
-            Receive
-          </Button>
-        </div>
+        <section className="rounded-2xl border border-border bg-card p-4 sm:p-5"><div className="mb-3 flex items-center justify-between"><div><h2 className="text-base font-semibold text-foreground">Popular assets</h2><p className="text-xs text-muted-foreground">Prices update automatically · Kurse werden laufend aktualisiert</p></div><Button variant="ghost" onClick={() => setActiveTab("markets")} className="min-h-[44px] text-primary">All assets / Alle Assets</Button></div><div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{(coins || []).slice(0, 4).map((coin) => <button key={coin.id} onClick={() => { setMexcSymbol(`${coin.symbol.toUpperCase()}USDT`); setActiveTab("spot") }} className="flex min-h-[68px] items-center gap-2 rounded-xl border border-border/70 p-3 text-left transition-colors hover:bg-secondary/60"><Image src={coin.image} alt="" width={28} height={28} className="rounded-full" /><span className="min-w-0 flex-1"><span className="block truncate text-xs font-semibold text-foreground">{coin.symbol.toUpperCase()}</span><span className="block truncate text-xs text-muted-foreground">{formatUsd(coin.current_price)}</span></span><span className={`text-[10px] font-semibold ${coin.price_change_percentage_24h >= 0 ? "text-primary" : "text-destructive"}`}>{coin.price_change_percentage_24h >= 0 ? "+" : ""}{coin.price_change_percentage_24h.toFixed(1)}%</span></button>)}</div></section>
 
         {/* Tabs: Wallet / Markets / Activity */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 bg-secondary/50 min-h-[48px]">
-            <TabsTrigger value="wallet" className="min-h-[44px] gap-1.5 text-xs font-semibold">
-              <SecBadge size={16} />
-              Wallet
-            </TabsTrigger>
-            <TabsTrigger value="markets" className="min-h-[44px] gap-1.5 text-xs font-semibold">
-              <SecBadge size={16} />
-              Markets
-            </TabsTrigger>
-            <TabsTrigger value="spot" className="min-h-[44px] gap-1.5 text-xs font-semibold">
-              <TrendingUp className="h-4 w-4" />
-              Spot
-            </TabsTrigger>
-            <TabsTrigger value="activity" className="min-h-[44px] gap-1.5 text-xs font-semibold">
-              <SecBadge size={16} />
-              Activity
-            </TabsTrigger>
+          <TabsList className="grid min-h-[52px] w-full grid-cols-4 rounded-full border border-border bg-card p-1 shadow-sm">
+            <TabsTrigger value="wallet" className="min-h-[44px] gap-1 px-1 text-[11px] font-semibold sm:text-sm"><Wallet className="h-4 w-4" />Overview</TabsTrigger>
+            <TabsTrigger value="markets" className="min-h-[44px] gap-1 px-1 text-[11px] font-semibold sm:text-sm"><Coins className="h-4 w-4" />Assets</TabsTrigger>
+            <TabsTrigger value="spot" className="min-h-[44px] gap-1 px-1 text-[11px] font-semibold sm:text-sm"><TrendingUp className="h-4 w-4" />Trade</TabsTrigger>
+            <TabsTrigger value="activity" className="min-h-[44px] gap-1 px-1 text-[11px] font-semibold sm:text-sm"><Clock className="h-4 w-4" />Activity</TabsTrigger>
           </TabsList>
 
           {/* ---- Wallet Tab ---- */}
@@ -749,7 +653,7 @@ export default function CKSApp() {
                 </div>
                 <div className="ml-auto text-right">
                   <p className="text-sm font-bold font-mono text-foreground">
-                    {parseFloat(balance).toFixed(6)}
+                    {Number.isFinite(Number(balance)) ? Number(balance).toFixed(6) : "—"}
                   </p>
                   {balanceUsd !== null && (
                     <p className="text-xs text-muted-foreground">{formatUsd(balanceUsd)}</p>
@@ -889,42 +793,15 @@ export default function CKSApp() {
             )}
           </TabsContent>
         </Tabs>
-      </div>
+      </main>
 
-      {/* Bottom nav */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 glass-strong px-2 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-        <div className="max-w-lg mx-auto flex items-center justify-around">
-          <NavButton
-            icon={<Wallet className="w-5 h-5" />}
-            label="Wallet"
-            active={activeTab === "wallet"}
-            onClick={() => setActiveTab("wallet")}
-          />
-          <NavButton
-            icon={<Send className="w-5 h-5" />}
-            label="Send"
-            onClick={() => setShowSend(true)}
-          />
-          <button
-            onClick={() => setShowReceive(true)}
-            className="flex flex-col items-center justify-center -mt-4 min-h-[44px] min-w-[44px]"
-          >
-            <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center ring-4 ring-background">
-              <SecBadge size={32} />
-            </div>
-            <span className="text-[10px] text-muted-foreground mt-1">Receive</span>
-          </button>
-          <NavButton
-            icon={<Coins className="w-5 h-5" />}
-            label="Markets"
-            active={activeTab === "markets"}
-            onClick={() => setActiveTab("markets")}
-          />
-          <NavButton
-            icon={<Settings className="w-5 h-5" />}
-            label="Settings"
-            onClick={() => setShowSettings(true)}
-          />
+      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/95 px-2 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur-xl" aria-label="Main navigation">
+        <div className="mx-auto flex max-w-2xl items-center justify-around">
+          <NavButton icon={<Wallet className="h-5 w-5" />} label="Home" active={activeTab === "wallet"} onClick={() => setActiveTab("wallet")} />
+          <NavButton icon={<Coins className="h-5 w-5" />} label="Assets" active={activeTab === "markets"} onClick={() => setActiveTab("markets")} />
+          <NavButton icon={<TrendingUp className="h-5 w-5" />} label="Trade" active={activeTab === "spot"} onClick={() => setActiveTab("spot")} />
+          <NavButton icon={<Clock className="h-5 w-5" />} label="Activity" active={activeTab === "activity"} onClick={() => setActiveTab("activity")} />
+          <NavButton icon={<Settings className="h-5 w-5" />} label="Settings" onClick={() => setShowSettings(true)} />
         </div>
       </nav>
 
@@ -963,7 +840,7 @@ export default function CKSApp() {
                 onClick={() => setSendAmount(balance)}
                 className="mt-1 text-xs text-primary hover:underline min-h-[44px] px-1"
               >
-                Max: {parseFloat(balance).toFixed(6)} {network.symbol}
+                Max: {Number.isFinite(Number(balance)) ? Number(balance).toFixed(6) : "—"} {network.symbol}
               </button>
             </div>
             <div>
@@ -974,7 +851,7 @@ export default function CKSApp() {
                 className="mt-1.5 font-mono text-sm"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Current gas: {parseFloat(gasPrice).toFixed(1)} Gwei
+                Current gas: {Number.isFinite(Number(gasPrice)) ? Number(gasPrice).toFixed(1) : "—"} Gwei
               </p>
             </div>
           </div>
